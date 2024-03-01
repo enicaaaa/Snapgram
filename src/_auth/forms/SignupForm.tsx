@@ -1,3 +1,4 @@
+import { useToast } from "@/components/ui/use-toast"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -13,9 +14,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { SignupValidation } from "@/lib/validation"
 import Loader from "@/components/shared/Loader"
+import { Link, useNavigate } from "react-router-dom"
+import { useCreateUserAccount, useSignInAccount } from "@/lib/react-query/queriesAndMutations"
+import { useUserContext } from "@/context/AuthContext"
 
 const SignupForm = () => {
-    const isLoading = false;
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const { checkAuthUser, isLoading: isUserLoading } = useUserContext();
+
+    const { mutateAsync: createUserAccount, isPending: isCreatingUser } = useCreateUserAccount();
+
+    const { mutateAsync: signInAccount, isPending: isSigningIn } = useSignInAccount();
 
     // 1. Define your form.
     const form = useForm<z.infer<typeof SignupValidation>>({
@@ -27,19 +37,39 @@ const SignupForm = () => {
             password: ""
         },
     })
-    
+
     // 2. Define a submit handler.
-    function onSubmit(values: z.infer<typeof SignupValidation>) {
-        // Do something with the form values.
-        // ✅ This will be type-safe and validated.
-        console.log(values)
+    async function onSubmit(values: z.infer<typeof SignupValidation>) {
+        const newUser = await createUserAccount(values);
+
+        if(!newUser) {
+            return toast({
+                title: "Sign up failed. Please try again."
+            });
+        }
+
+        const session = await signInAccount({
+            email: values.email,
+            password: values.password
+        });
+
+        if(!session) {
+            return toast({ title: "Sign in failed. Please try again." })
+        }
+        const isLoggedIn = await checkAuthUser();
+        if(isLoggedIn)
+        {
+            form.reset();
+            navigate("/");
+        }
+        else toast({ title: "Sign in failed. Please try again." })
     }
     return (
         <Form {...form}>
             <div className="sm:w-420 flex-center flex-col">
                 <img src="public/assets/images/logo.svg" alt="logo"/>
                 <h2 className="h3-bold md:h2-bold pt-5 sm:pt-12">Create a new account</h2>
-                <p className="text-light-3 small-medium md:base-regular mt-2">To use Snapgram enter your account details</p>
+                <p className="text-light-3 small-medium md:base-regular mt-2">To use Snapgram, please enter your details</p>
                    
                 <form onSubmit={form.handleSubmit(onSubmit)} className="flex-col gap-5 w-full mt-4">
                     <FormField
@@ -95,10 +125,15 @@ const SignupForm = () => {
                         )}
                     />
                     <Button type="submit" className="shad-button_primary mt-6 md:w-full">
-                        { isLoading ? (<div className="flex-center gap-2">
+                        { isCreatingUser ? (<div className="flex-center gap-2">
                             <Loader /> Loading...
                         </div>) : ("Sign up") }
                     </Button>
+
+                    <p className="text-small-regular text-light-2 text-center mt-2">
+                        Already have an account?
+                        <Link to="/sign-in" className="text-primary-500 text-small-semibold ml-1">Log in</Link>
+                    </p>
                 </form>
             </div> 
         </Form>
