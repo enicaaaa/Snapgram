@@ -354,3 +354,50 @@ export async function deletePost(postId: string, imageId: string)
         console.error(error);
     }
 }
+
+
+export async function getInfinitivePosts({ pageParam }: {pageParam: number})
+{
+    const queries = [Query.orderDesc('$updatedAt'), Query.limit(10)]; 
+    if(pageParam) 
+    {
+        queries.push(Query.cursorAfter(pageParam.toString()));
+    }
+
+    try
+    {
+        const posts = await databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.postCollectionId,
+            queries
+        );
+
+        if(!posts) throw Error;
+
+        return posts;
+    }
+    catch(error)
+    {
+        console.error(error);
+    }
+}
+
+export async function searchPosts({ searchTerm }: {searchTerm: string})
+{
+    try
+    {
+        const posts = await databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.postCollectionId,
+            [Query.search('caption', searchTerm)]
+        );
+
+        if(!posts) throw Error;
+
+        return posts;
+    }
+    catch(error)
+    {
+        console.error(error);
+    }
+}
